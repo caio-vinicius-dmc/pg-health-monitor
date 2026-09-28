@@ -1,0 +1,39 @@
+# Banco de demonstração. O monitor não precisa deste arquivo para funcionar:
+# ele roda contra qualquer PostgreSQL alcançável. O container existe para o
+# projeto ser testável sem apontar para um banco de verdade.
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: pg_health_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-monitor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitor_local}
+      POSTGRES_DB: ${POSTGRES_DB:-aplicacao}
+    ports:
+      - "${POSTGRES_PORT:-15438}:5432"
+    volumes:
+      - dados_postgres:/var/lib/postgresql/data
+    command:
+      - postgres
+      # Autovacuum desligado de propósito: e o que permite acumular tuplas
+      # mortas e demonstrar a checagem de bloat. NUNCA faça isso em
+      # produção -- sem autovacuum o banco caminha para o wraparound.
+      - -c
+      - autovacuum=off
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - max_connections=50
+      - -c
+      - track_io_timing=on
+      - -c
+      - track_counts=on
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitor} -d ${POSTGRES_DB:-aplicacao}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  dados_postgres:
